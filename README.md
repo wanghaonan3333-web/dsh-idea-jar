@@ -41,7 +41,7 @@ GitHub installation runs the package `prepare` build. pnpm 10 and newer block de
 The prebuilt release avoids dependency-build approval:
 
 ```sh
-dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.2.0.tgz"
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.3.1.tgz"
 ```
 
 ## Usage

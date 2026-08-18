@@ -42,7 +42,7 @@ GitHub 安装会运行项目的 `prepare` 构建脚本。pnpm 10 及以上版本
 预构建包不需要依赖构建授权：
 
 ```sh
-dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.2.0.tgz"
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.3.1.tgz"
 ```
 
 ## 使用
