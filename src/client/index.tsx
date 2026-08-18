@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   IDEA_JAR_API_PATH,
   IDEA_STATUSES,
+  IDEA_STATUS_LABELS,
+  favoritesToJson,
+  favoritesToMarkdown,
   type FavoriteIdea,
   type FavoritesResult,
   type GenerateResult,
   type Idea,
   type IdeaJarRequest,
   type IdeaStatus,
+  type ImportResult,
 } from '../shared.ts'
 
 export const name = 'dsh-idea-jar'
@@ -33,11 +37,9 @@ interface CardFeedback {
   message: string
 }
 
-const labels: Record<IdeaStatus, string> = {
-  planned: '计划中',
-  'in-progress': '进行中',
-  implemented: '已实现',
-  archived: '暂不做',
+interface Undo {
+  kind: 'delete' | 'optimize'
+  item: FavoriteIdea
 }
 
 const paperLayouts = [
@@ -47,14 +49,17 @@ const paperLayouts = [
 
 const style = `
 .ideaJarScene{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:9px;pointer-events:none;color:var(--dsw-alias-label-primary)}
-.ideaJarScene button,.ideaJarScene input,.ideaJarScene textarea{font:inherit}.ideaJarBubble,.ideaJarPanel,.ideaJarJarWrap,.ideaJarRequirement{pointer-events:auto}
-.ideaJarBubble,.ideaJarPanel{box-shadow:0 12px 30px rgba(0,0,0,.16)}.ideaJarBubble{position:relative;max-width:320px;padding:12px 40px 12px 13px;border:1px solid var(--dsw-alias-border-l1);border-radius:17px 17px 5px 17px;background:var(--dsw-alias-bg-overlay);font-size:13px;line-height:1.55}
-.ideaJarMeta{display:flex;gap:5px;margin-bottom:4px;font-size:10px;color:var(--dsw-alias-label-secondary)}.ideaJarTag{padding:2px 7px;border-radius:999px;background:var(--dsw-alias-state-business-tertiary)}.ideaJarIcon{position:absolute;top:6px;border:0;background:transparent;cursor:pointer}.ideaJarStar{right:25px;color:var(--dsw-alias-state-warn-primary)}.ideaJarBubbleClose{right:6px;color:var(--dsw-alias-label-secondary)}
+.ideaJarScene button,.ideaJarScene input,.ideaJarScene textarea{font:inherit}.ideaJarBubble,.ideaJarPanel,.ideaJarJarWrap,.ideaJarRequirement,.ideaJarBubbleTools{pointer-events:auto}
+.ideaJarBubble,.ideaJarPanel{box-shadow:0 12px 30px rgba(0,0,0,.16)}.ideaJarBubbles{display:flex;flex-direction:column;align-items:flex-end;gap:8px}.ideaJarBubble{position:relative;max-width:320px;padding:12px 34px 12px 13px;border:1px solid var(--dsw-alias-border-l1);border-radius:17px 17px 5px 17px;background:var(--dsw-alias-bg-overlay);font-size:13px;line-height:1.55}
+.ideaJarMeta{display:flex;gap:5px;margin-bottom:4px;font-size:10px;color:var(--dsw-alias-label-secondary)}.ideaJarTag{padding:2px 7px;border-radius:999px;background:var(--dsw-alias-state-business-tertiary)}.ideaJarIcon{position:absolute;top:6px;border:0;background:transparent;cursor:pointer}.ideaJarStar{right:8px;color:var(--dsw-alias-state-warn-primary)}
+.ideaJarBubbleTools{display:flex;align-items:center;gap:4px}.ideaJarToolButton{border:1px solid var(--dsw-alias-border-l1);border-radius:999px;padding:5px 10px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:11px;cursor:pointer}.ideaJarToolButton:disabled{opacity:.55;cursor:wait}.ideaJarToolPrimary{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarToolClose{width:27px;height:27px;border:0;border-radius:50%;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);cursor:pointer}
 .ideaJarRequirement{box-sizing:border-box;width:230px;padding:8px 11px;border:1px solid var(--dsw-alias-border-l1);border-radius:14px;outline:none;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:12px}.ideaJarRequirement:focus{border-color:var(--dsw-alias-brand-primary)}
 .ideaJarJarWrap{position:relative;width:82px;height:98px}.ideaJarJar{position:absolute;right:5px;bottom:0;width:72px;height:90px;padding:0;border:0;background:transparent;cursor:pointer;filter:drop-shadow(0 5px 7px rgba(0,0,0,.14))}.ideaJarJar:disabled{cursor:wait}.ideaJarJar svg{width:72px;height:90px}
 .ideaJarLibrary{position:absolute;right:-5px;top:15px;z-index:3;width:31px;height:31px;border:1px solid var(--dsw-alias-border-l1);border-radius:50%;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-state-warn-primary);box-shadow:0 4px 10px rgba(0,0,0,.16);cursor:pointer}.ideaJarCount{position:absolute;right:-5px;top:-5px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-overlay);font-size:9px;line-height:15px}
 .ideaJarWait{position:absolute;left:27px;top:-31px;width:30px;height:55px}.ideaJarWaitDot{position:absolute;left:11px;bottom:0;border:1.6px solid var(--dsw-alias-brand-primary);border-radius:50%;opacity:0;animation:ideaJarUp 1.5s ease-in-out infinite both}.ideaJarWaitDot:nth-child(1){width:7px;height:7px}.ideaJarWaitDot:nth-child(2){left:8px;width:10px;height:10px;animation-delay:.38s}.ideaJarWaitDot:nth-child(3){left:14px;width:6px;height:6px;animation-delay:.76s}.ideaJarPaper{animation:ideaJarDrop .42s ease-out both;transform-box:fill-box}
+.ideaJarToast,.ideaJarNotice{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:11px;background:var(--dsw-alias-bg-overlay);box-shadow:0 8px 20px rgba(0,0,0,.16);font-size:11px}.ideaJarToastAction{border:0;border-radius:7px;padding:4px 8px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text);cursor:pointer;font-size:11px}.ideaJarToastClose{border:0;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}.ideaJarNotice{color:var(--dsw-alias-label-secondary)}
 .ideaJarPanel{width:min(390px,calc(100vw - 32px));max-height:min(500px,68vh);overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:18px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 92%,#f2cf74 8%)}.ideaJarPanelTop{position:sticky;top:0;z-index:8;padding:13px 14px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}.ideaJarTitleRow{display:flex;justify-content:space-between}.ideaJarTitle{font-size:15px;font-weight:700}.ideaJarSubtitle{margin-top:2px;color:var(--dsw-alias-label-secondary);font-size:10px}.ideaJarPanelClose{width:25px;height:25px;border:0;border-radius:50%;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);cursor:pointer}
+.ideaJarToolbar{display:flex;gap:5px;margin-top:9px}.ideaJarTransfer{border:1px solid var(--dsw-alias-border-l1);border-radius:999px;padding:3px 9px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:10px}.ideaJarTransfer:hover{color:var(--dsw-alias-label-primary)}
 .ideaJarFilters{display:flex;gap:5px;margin-top:9px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.ideaJarFilter{flex:none;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;padding:3px 8px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:10px}.ideaJarFilterOn{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarList{display:flex;flex-direction:column;gap:8px;padding:9px}
 .ideaJarCard{position:relative;padding:10px 11px 9px 12px;border:1px solid var(--dsw-alias-border-l1);border-left-width:3px;border-radius:11px;background:color-mix(in srgb,var(--dsw-alias-bg-overlay) 91%,#ffe9a8 9%);box-shadow:0 2px 7px rgba(0,0,0,.05)}.ideaJarCard-planned{border-left-color:var(--dsw-alias-state-warn-primary)}.ideaJarCard-in-progress{border-left-color:var(--dsw-alias-brand-primary)}.ideaJarCard-implemented{border-left-color:var(--dsw-alias-state-success-primary)}.ideaJarCard-archived{border-left-color:var(--dsw-alias-label-secondary)}
 .ideaJarCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ideaJarCategory{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:10px;font-weight:650}.ideaJarStatusArea{position:relative;flex:none}.ideaJarStatus{display:flex;align-items:center;gap:5px;border:1px solid currentColor;border-radius:999px;padding:4px 8px;background:var(--dsw-alias-bg-overlay);font-size:10px;font-weight:650;cursor:pointer}.ideaJarStatus:disabled{opacity:.5}.ideaJarStatus-planned{color:var(--dsw-alias-state-warn-primary)}.ideaJarStatus-in-progress{color:var(--dsw-alias-brand-primary)}.ideaJarStatus-implemented{color:var(--dsw-alias-state-success-primary)}.ideaJarStatus-archived{color:var(--dsw-alias-label-secondary)}.ideaJarDot{width:6px;height:6px;border-radius:50%;background:currentColor}.ideaJarMenu{position:absolute;right:0;top:30px;z-index:20;width:116px;padding:5px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-overlay);box-shadow:0 8px 24px rgba(0,0,0,.18)}.ideaJarMenuItem{display:flex;width:100%;align-items:center;gap:7px;border:0;border-radius:7px;padding:7px 8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:11px;cursor:pointer}.ideaJarMenuItem:hover{background:var(--dsw-alias-bg-layer-2)}
@@ -84,6 +89,16 @@ async function callApi<T>(request: IdeaJarRequest): Promise<T> {
   return value as T
 }
 
+function downloadFile(filename: string, text: string): void {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 function JarGraphic({ favorites }: { favorites: FavoriteIdea[] }) {
   const colors: Record<IdeaStatus, string> = {
     planned: 'var(--dsw-alias-state-warn-primary)',
@@ -105,7 +120,8 @@ function JarGraphic({ favorites }: { favorites: FavoriteIdea[] }) {
 }
 
 function IdeaJar() {
-  const [current, setCurrent] = useState<CurrentIdea | null>(null)
+  const [candidates, setCandidates] = useState<CurrentIdea[]>([])
+  const [lastCount, setLastCount] = useState(1)
   const [request, setRequest] = useState('')
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
@@ -118,6 +134,9 @@ function IdeaJar() {
   const [optimizingId, setOptimizingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<CardFeedback | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [undo, setUndo] = useState<Undo | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let active = true
@@ -133,19 +152,34 @@ function IdeaJar() {
     return () => window.clearTimeout(timeout)
   }, [copiedId])
 
+  useEffect(() => {
+    if (undo === null) return
+    const timeout = window.setTimeout(() => setUndo(null), 6000)
+    return () => window.clearTimeout(timeout)
+  }, [undo])
+
+  useEffect(() => {
+    if (notice === null) return
+    const timeout = window.setTimeout(() => setNotice(null), 3200)
+    return () => window.clearTimeout(timeout)
+  }, [notice])
+
   const visible = useMemo(
     () => filter === 'all' ? saved : saved.filter(item => item.status === filter),
     [filter, saved],
   )
 
-  const generate = async () => {
+  const generate = async (count: number) => {
     if (busy) return
     setBusy(true)
+    setCandidates([])
     try {
-      const result = await callApi<GenerateResult>({ action: 'generate', request })
-      setCurrent(result.item)
+      const result = await callApi<GenerateResult>({ action: 'generate', request, count })
+      setCandidates(result.items)
+      setLastCount(result.items.length)
     } catch (error) {
-      setCurrent({ id: `error-${String(Date.now())}`, category: '提示', idea: errorMessage(error), error: true })
+      setCandidates([{ id: `error-${String(Date.now())}`, category: '提示', idea: errorMessage(error), error: true }])
+      setLastCount(1)
     } finally {
       setBusy(false)
     }
@@ -154,17 +188,17 @@ function IdeaJar() {
   const handleRequirementKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return
     event.preventDefault()
-    void generate()
+    void generate(lastCount)
   }
 
-  const favoriteCurrent = async () => {
-    if (current === null || current.error) return
+  const favoriteCandidate = async (item: CurrentIdea) => {
+    if (item.error) return
     try {
-      const result = await callApi<FavoritesResult>({ action: 'favorite', item: current })
+      const result = await callApi<FavoritesResult>({ action: 'favorite', item })
       setSaved(result.favorites)
-      setCurrent({ ...current, favorite: true })
+      setCandidates(prev => prev.map(candidate => candidate.id === item.id ? { ...candidate, favorite: true } : candidate))
     } catch (error) {
-      setCurrent({ ...current, category: '保存失败', idea: errorMessage(error), error: true })
+      setCandidates(prev => prev.map(candidate => candidate.id === item.id ? { ...candidate, category: '保存失败', idea: errorMessage(error), error: true } : candidate))
     }
   }
 
@@ -198,6 +232,7 @@ function IdeaJar() {
       const result = await callApi<FavoritesResult>({ action: 'optimize', id: item.id })
       setSaved(result.favorites)
       setFeedback({ id: item.id, kind: 'success', message: '优化完成，内容已保存。' })
+      setUndo({ kind: 'optimize', item })
     } catch (error) {
       setFeedback({ id: item.id, kind: 'error', message: errorMessage(error) })
     } finally {
@@ -210,6 +245,7 @@ function IdeaJar() {
       const result = await callApi<FavoritesResult>({ action: 'remove', id: item.id })
       setSaved(result.favorites)
       if (expandedId === item.id) setExpandedId(null)
+      setUndo({ kind: 'delete', item })
     } catch (error) {
       setFeedback({ id: item.id, kind: 'error', message: errorMessage(error) })
     }
@@ -225,17 +261,81 @@ function IdeaJar() {
     }
   }
 
+  const exportJson = () => {
+    if (saved.length === 0) { setNotice('罐子还是空的，没有可导出的内容。'); return }
+    downloadFile(`idea-jar-${new Date().toISOString().slice(0, 10)}.json`, favoritesToJson(saved))
+    setNotice(`已导出 ${String(saved.length)} 条 JSON。`)
+  }
+
+  const exportMarkdown = () => {
+    if (saved.length === 0) { setNotice('罐子还是空的，没有可导出的内容。'); return }
+    downloadFile(`idea-jar-${new Date().toISOString().slice(0, 10)}.md`, favoritesToMarkdown(saved))
+    setNotice(`已导出 ${String(saved.length)} 条 Markdown。`)
+  }
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text()
+      const result = await callApi<ImportResult>({ action: 'import', text })
+      setSaved(result.favorites)
+      setNotice(`导入 ${String(result.imported)} 条，跳过 ${String(result.skipped)} 条。`)
+    } catch (error) {
+      setNotice(`导入失败：${errorMessage(error)}`)
+    }
+  }
+
+  const undoAction = async () => {
+    if (undo === null) return
+    const target = undo
+    setUndo(null)
+    try {
+      const result = await callApi<ImportResult>({ action: 'import', text: favoritesToJson([target.item]) })
+      setSaved(result.favorites)
+      setNotice(target.kind === 'delete' ? '已撤销删除。' : '已撤销优化。')
+    } catch (error) {
+      setNotice(`撤销失败：${errorMessage(error)}`)
+    }
+  }
+
   return <div className="ideaJarScene">
     <style>{style}</style>
-    {current !== null && <>
-      <div className="ideaJarBubble">
-        {!current.error && <button className="ideaJarIcon ideaJarStar" onClick={() => void favoriteCurrent()} aria-label="收藏灵感">{current.favorite ? '★' : '☆'}</button>}
-        <button className="ideaJarIcon ideaJarBubbleClose" onClick={() => setCurrent(null)} aria-label="关闭灵感">×</button>
-        <div className="ideaJarMeta"><span className="ideaJarTag">{current.category}</span></div>
-        {current.idea}
+    <input
+      ref={importRef}
+      type="file"
+      accept=".json,.txt,application/json,text/plain"
+      style={{ display: 'none' }}
+      onChange={event => {
+        const file = event.target.files?.[0]
+        if (file !== undefined) void handleImportFile(file)
+        event.target.value = ''
+      }}
+    />
+
+    {candidates.length > 0 && <>
+      <div className="ideaJarBubbles">
+        {candidates.map((item, index) => <div className="ideaJarBubble" key={item.id}>
+          {!item.error && <button className="ideaJarIcon ideaJarStar" onClick={() => void favoriteCandidate(item)} aria-label="收藏灵感">{item.favorite ? '★' : '☆'}</button>}
+          <div className="ideaJarMeta">
+            <span className="ideaJarTag">{item.category}</span>
+            {candidates.length > 1 && <span className="ideaJarTag">{String(index + 1)}/{String(candidates.length)}</span>}
+          </div>
+          {item.idea}
+        </div>)}
+        <div className="ideaJarBubbleTools">
+          <button className="ideaJarToolButton ideaJarToolPrimary" disabled={busy} onClick={() => void generate(lastCount)}>✦ 换一个</button>
+          <button className="ideaJarToolButton" disabled={busy} onClick={() => void generate(3)}>✦ 来三条</button>
+          <button className="ideaJarToolClose" onClick={() => setCandidates([])} aria-label="关闭灵感">×</button>
+        </div>
       </div>
       <input className="ideaJarRequirement" value={request} onChange={event => setRequest(event.target.value)} onKeyDown={handleRequirementKey} placeholder="继续加一点需求…" aria-label="额外创意需求" />
     </>}
+
+    {undo !== null && <div className="ideaJarToast">
+      <span>{undo.kind === 'delete' ? '已删除 1 条灵感' : '已应用 AI 优化'}</span>
+      <button className="ideaJarToastAction" onClick={() => void undoAction()}>撤销</button>
+      <button className="ideaJarToastClose" onClick={() => setUndo(null)} aria-label="关闭提示">×</button>
+    </div>}
+    {notice !== null && <div className="ideaJarNotice">{notice}</div>}
 
     {open && <section className="ideaJarPanel" aria-label="灵感收藏">
       <div className="ideaJarPanelTop">
@@ -243,8 +343,13 @@ function IdeaJar() {
           <div><div className="ideaJarTitle">灵感收藏</div><div className="ideaJarSubtitle">{saved.length} 张纸条 · 自动持久保存</div></div>
           <button className="ideaJarPanelClose" onClick={() => setOpen(false)} aria-label="关闭收藏">×</button>
         </div>
+        <div className="ideaJarToolbar">
+          <button className="ideaJarTransfer" onClick={exportJson}>⇩ 导出 JSON</button>
+          <button className="ideaJarTransfer" onClick={exportMarkdown}>⇩ 导出 Markdown</button>
+          <button className="ideaJarTransfer" onClick={() => importRef.current?.click()}>⇧ 导入</button>
+        </div>
         <div className="ideaJarFilters">
-          {([['all', '全部'], ...IDEA_STATUSES.map(status => [status, labels[status]] as const)] as const).map(([key, text]) => {
+          {([['all', '全部'], ...IDEA_STATUSES.map(status => [status, IDEA_STATUS_LABELS[status]] as const)] as const).map(([key, text]) => {
             const count = key === 'all' ? saved.length : saved.filter(item => item.status === key).length
             return <button key={key} className={`ideaJarFilter${filter === key ? ' ideaJarFilterOn' : ''}`} onClick={() => setFilter(key)}>{text} {count}</button>
           })}
@@ -262,10 +367,10 @@ function IdeaJar() {
               <span className="ideaJarCategory">{item.category}</span>
               <div className="ideaJarStatusArea">
                 <button className={`ideaJarStatus ideaJarStatus-${item.status}`} disabled={loading} onClick={() => setStatusMenuId(statusMenuId === item.id ? null : item.id)}>
-                  <span className="ideaJarDot" />{labels[item.status]}⌄
+                  <span className="ideaJarDot" />{IDEA_STATUS_LABELS[item.status]}⌄
                 </button>
                 {statusMenuId === item.id && <div className="ideaJarMenu">{IDEA_STATUSES.map(status => <button key={status} className="ideaJarMenuItem" onClick={() => void updateStatus(item, status)}>
-                  <span className={`ideaJarDot ideaJarStatus-${status}`} />{labels[status]}
+                  <span className={`ideaJarDot ideaJarStatus-${status}`} />{IDEA_STATUS_LABELS[status]}
                 </button>)}</div>}
               </div>
             </div>
@@ -293,7 +398,7 @@ function IdeaJar() {
 
     <div className="ideaJarJarWrap">
       {busy && <div className="ideaJarWait"><span className="ideaJarWaitDot" /><span className="ideaJarWaitDot" /><span className="ideaJarWaitDot" /></div>}
-      <button className="ideaJarJar" onClick={() => void generate()} disabled={busy} aria-label="生成一条灵感"><JarGraphic favorites={saved} /></button>
+      <button className="ideaJarJar" onClick={() => void generate(1)} disabled={busy} aria-label="生成一条灵感"><JarGraphic favorites={saved} /></button>
       <button className="ideaJarLibrary" onClick={() => setOpen(!open)} aria-label="打开灵感收藏">★{saved.length > 0 && <span className="ideaJarCount">{saved.length}</span>}</button>
     </div>
   </div>

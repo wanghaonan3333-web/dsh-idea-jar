@@ -8,8 +8,10 @@ Idea Jar is a floating creative tool for DeepSeek Harness Web. Click the transpa
 
 - Generates general-purpose creative ideas with the currently configured DSH default model.
 - Accepts an optional follow-up requirement after the first result; Enter generates again.
+- Generates up to three candidates at once; "换一个" regenerates with the same requirement.
 - Shows saved ideas as status-colored folded notes inside a transparent jar.
-- Supports expand, edit, copy, AI optimization, delete, status changes, and filtering.
+- Supports expand, edit, copy, AI optimization, delete, status changes, filtering, and undo for delete/optimize.
+- Exports favorites to JSON or Markdown and imports JSON or the legacy dynamic-plugin backup.
 - Persists favorites through the DSH Settings `idea-jar` namespace across page reloads, plugin updates, and DSH restarts.
 
 ## Install
@@ -37,17 +39,26 @@ GitHub installation runs the package `prepare` build. pnpm 10 and newer block de
 The prebuilt release avoids dependency-build approval:
 
 ```sh
-dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.1.0.tgz"
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.2.0.tgz"
 ```
 
 ## Usage
 
 1. Click the transparent jar in the lower-right corner.
 2. Favorite a generated idea with the star in its bubble.
-3. Open the library with the star button attached to the jar.
-4. Edit, copy, optimize, delete, or assign a status from each paper card.
+3. Use "换一个" to regenerate or "来三条" to generate three candidates at once.
+4. Open the library with the star button attached to the jar.
+5. Edit, copy, optimize, delete, or assign a status from each paper card.
+6. Export or import from the toolbar at the top of the library.
 
 Copy writes `category｜idea` to the system clipboard and reports browser permission failures on the card.
+
+## Import and export
+
+- **Export JSON** produces the canonical backup: full fidelity with status, re-importable on any machine.
+- **Export Markdown** produces a human-readable list for sharing; it is read-only and not re-imported.
+- **Import** accepts the plugin's own JSON backup (bare array or `{ "favorites": [...] }`) and the legacy dynamic-plugin `.idea-jar-favorites.txt` (tab-separated, base64-encoded category and idea).
+- Deleting or optimizing a favorite shows a short-lived "撤销" toast that restores the previous state.
 
 ## Configuration
 
@@ -60,6 +71,7 @@ Override the complete `idea-jar` row config in the profile's `cordis.patch.yml`:
     maxRequestChars: 2000
     maxIdeaChars: 1000
     maxTokens: 320
+    maxBatch: 3
 ```
 
 | Field | Default | Purpose |
@@ -68,12 +80,13 @@ Override the complete `idea-jar` row config in the profile's `cordis.patch.yml`:
 | `maxRequestChars` | `2000` | Maximum extra-requirement length. |
 | `maxIdeaChars` | `1000` | Maximum saved idea length. |
 | `maxTokens` | `320` | Output-token cap for generation and optimization. |
+| `maxBatch` | `3` | Maximum candidates per generation request. |
 
 ## Data and permissions
 
 - Favorites live in the `idea-jar` section of `$DSH_HOME/settings.yaml`; the plugin creates no project-local data file.
 - Generation and optimization use the configured DSH default model and its existing credentials.
-- The Host registers the same-origin POST endpoint `/idea-jar/api`; cross-site requests are rejected and bodies are capped at 64 KiB.
+- The Host registers the same-origin POST endpoint `/idea-jar/api`; cross-site requests are rejected and bodies are capped at 2 MiB.
 - The Client invokes the browser Clipboard API only after a copy click.
 - The plugin contains no telemetry, advertising, or third-party analytics.
 

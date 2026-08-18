@@ -6,7 +6,7 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { BlockAssembler, MessageId } from '@deepseek-ai/dsh-llm'
 import Schema from '@deepseek-ai/schemastery'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import { cloneFavorites, isIdeaStatus, parseIdeaLine, replaceFavorite } from './domain.ts'
+import { cloneFavorites, isIdeaStatus, mergeFavorites, parseIdeaLine, parseImportText, replaceFavorite } from './domain.ts'
 import {
   IDEA_JAR_API_PATH,
   type FavoriteIdea,
@@ -14,6 +14,7 @@ import {
   type GenerateResult,
   type Idea,
   type IdeaJarRequest,
+  type ImportResult,
 } from './shared.ts'
 
 export const name = 'dsh-idea-jar'
@@ -24,6 +25,7 @@ export interface Config {
   maxRequestChars: number
   maxIdeaChars: number
   maxTokens: number
+  maxBatch: number
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -31,6 +33,7 @@ export const Config: Schema<Config> = Schema.object({
   maxRequestChars: Schema.number().step(1).min(1).max(20000).default(2000),
   maxIdeaChars: Schema.number().step(1).min(80).max(10000).default(1000),
   maxTokens: Schema.number().step(1).min(64).max(4096).default(320),
+  maxBatch: Schema.number().step(1).min(1).max(10).default(3),
 })
 
 interface IdeaJarSettings {
@@ -49,7 +52,7 @@ const settingsSchema: Schema<IdeaJarSettings> = Schema.object({
 })
 
 const SETTINGS_NAMESPACE = settingsNamespace('idea-jar')
-const MAX_API_BODY_BYTES = 64 * 1024
+const MAX_API_BODY_BYTES = 2 * 1024 * 1024
 const MAX_CATEGORY_CHARS = 100
 
 const generationSystem = `你是“灵感罐”的创意总监。生成一条新颖、具体、可继续执行的创作灵感，类型可以是软件、插件、网页、故事、短片、视觉设计、互动体验、内容栏目、工作流、游戏机制或其他形式。没有额外需求时随机选择不同领域；有需求时判断领域、目标和限制，在满足要求的基础上加入合理但意外的创意转折。灵感必须具体，并根据作品类型补足适合的核心维度。不要强行转化媒介。只有用户明确要求 DeepSeek Harness 插件时才按该方向构思，且不虚构具体 API。输出 80 至 180 个汉字，只输出一条，不解释，不使用 Markdown。格式：分类｜灵感内容。`
@@ -133,19 +136,28 @@ function parseRequest(value: unknown, config: Config): IdeaJarRequest {
       if (typeof value.request !== 'string' || value.request.length > config.maxRequestChars) {
         throw new HttpError(400, `额外需求不能超过 ${String(config.maxRequestChars)} 个字符。`)
       }
-      return { action: 'generate', request: value.request.trim() }
+      const count = value.count === undefined ? 1 : value.count
+      if (typeof count !== 'number' || !Number.isInteger(count) || count < 1 || count > config.maxBatch) {
+        throw new HttpError(400, `一次只能生成 1 到 ${String(config.maxBatch)} 条灵感。`)
+      }
+      return { action: 'generate', request: value.request.trim(), count }
     }
     case 'favorite': return { action: 'favorite', item: requireIdea(value.item, config.maxIdeaChars) }
     case 'update': {
       const id = requireString(value.id, 'id', 100)
+      const category = value.category === undefined ? undefined : requireString(value.category, 'category', MAX_CATEGORY_CHARS)
       const idea = value.idea === undefined ? undefined : requireString(value.idea, 'idea', config.maxIdeaChars)
       const status = value.status === undefined ? undefined : value.status
       if (status !== undefined && !isIdeaStatus(status)) throw new HttpError(400, '收藏状态无效。')
-      if (idea === undefined && status === undefined) throw new HttpError(400, '没有可更新的字段。')
-      return { action: 'update', id, ...(idea === undefined ? {} : { idea }), ...(status === undefined ? {} : { status }) }
+      if (category === undefined && idea === undefined && status === undefined) throw new HttpError(400, '没有可更新的字段。')
+      return { action: 'update', id, ...(category === undefined ? {} : { category }), ...(idea === undefined ? {} : { idea }), ...(status === undefined ? {} : { status }) }
     }
     case 'optimize': return { action: 'optimize', id: requireString(value.id, 'id', 100) }
     case 'remove': return { action: 'remove', id: requireString(value.id, 'id', 100) }
+    case 'import': {
+      if (typeof value.text !== 'string' || value.text.trim().length === 0) throw new HttpError(400, '导入内容为空。')
+      return { action: 'import', text: value.text }
+    }
     default: throw new HttpError(400, '未知 action。')
   }
 }
@@ -198,15 +210,20 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
     return boundedIdea(parseIdeaLine(text), config)
   }
 
-  const generate = async (request: string): Promise<GenerateResult> => {
-    const recentText = recent.length === 0 ? '暂无' : recent.join('\n')
-    const prompt = request.length > 0
-      ? `用户的额外需求：\n${request}\n\n判断合适的创作领域，在满足要求时加入有价值的创意转折。\n最近灵感：\n${recentText}`
-      : `用户没有提供额外需求。随机选择一个创作领域生成新灵感。\n最近灵感：\n${recentText}`
-    const parsed = await runModel(prompt, generationSystem)
-    recent.push(`${parsed.category}｜${parsed.idea}`)
-    if (recent.length > 8) recent.shift()
-    return { item: { id: randomUUID(), ...parsed } }
+  const generate = async (request: string, count: number): Promise<GenerateResult> => {
+    const recentText = () => recent.length === 0 ? '暂无' : recent.join('\n')
+    const base = request.length > 0
+      ? `用户的额外需求：\n${request}\n\n判断合适的创作领域，在满足要求时加入有价值的创意转折。`
+      : `用户没有提供额外需求。随机选择一个创作领域生成新灵感。`
+    const items: Idea[] = []
+    for (let index = 0; index < count; index++) {
+      const distinct = count > 1 ? `\n\n请生成第 ${String(index + 1)} 条灵感，并与前面几条明显不同，避免重复。` : ''
+      const parsed = await runModel(`${base}\n最近灵感：\n${recentText()}${distinct}`, generationSystem)
+      items.push({ id: randomUUID(), ...parsed })
+      recent.push(`${parsed.category}｜${parsed.idea}`)
+      if (recent.length > 8) recent.shift()
+    }
+    return { items }
   }
 
   const favorite = (item: Idea): Promise<FavoritesResult> => serializeWrite(async () => {
@@ -219,6 +236,7 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
   const update = (request: Extract<IdeaJarRequest, { action: 'update' }>): Promise<FavoritesResult> => serializeWrite(async () => {
     const current = settings.get().favorites
     return save(replaceFavorite(current, request.id, {
+      ...(request.category === undefined ? {} : { category: request.category }),
       ...(request.idea === undefined ? {} : { idea: request.idea }),
       ...(request.status === undefined ? {} : { status: request.status }),
     }))
@@ -245,17 +263,25 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
     return save(current.filter(item => item.id !== id))
   })
 
-  const dispatch = async (request: IdeaJarRequest): Promise<FavoritesResult | GenerateResult> => {
+  const importItems = (text: string): Promise<ImportResult> => serializeWrite(async () => {
+    const parsed = parseImportText(text)
+    const merged = mergeFavorites(settings.get().favorites, parsed.items, config.maxFavorites)
+    const result = await save(merged)
+    return { ...result, imported: parsed.items.length, skipped: parsed.skipped }
+  })
+
+  const dispatch = async (request: IdeaJarRequest): Promise<FavoritesResult | GenerateResult | ImportResult> => {
     switch (request.action) {
       case 'list': {
         await writeQueue
         return { favorites: cloneFavorites(settings.get().favorites) }
       }
-      case 'generate': return generate(request.request)
+      case 'generate': return generate(request.request, request.count ?? 1)
       case 'favorite': return favorite(request.item)
       case 'update': return update(request)
       case 'optimize': return optimize(request.id)
       case 'remove': return remove(request.id)
+      case 'import': return importItems(request.text)
     }
   }
 

@@ -4,6 +4,13 @@ export const IDEA_STATUSES = ['planned', 'in-progress', 'implemented', 'archived
 
 export type IdeaStatus = typeof IDEA_STATUSES[number]
 
+export const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
+  planned: '计划中',
+  'in-progress': '进行中',
+  implemented: '已实现',
+  archived: '暂不做',
+}
+
 export interface Idea {
   id: string
   category: string
@@ -19,13 +26,32 @@ export interface FavoritesResult {
 }
 
 export interface GenerateResult {
-  item: Idea
+  items: Idea[]
+}
+
+export interface ImportResult extends FavoritesResult {
+  imported: number
+  skipped: number
 }
 
 export type IdeaJarRequest =
   | { action: 'list' }
-  | { action: 'generate'; request: string }
+  | { action: 'generate'; request: string; count?: number }
   | { action: 'favorite'; item: Idea }
-  | { action: 'update'; id: string; idea?: string; status?: IdeaStatus }
+  | { action: 'update'; id: string; category?: string; idea?: string; status?: IdeaStatus }
   | { action: 'optimize'; id: string }
   | { action: 'remove'; id: string }
+  | { action: 'import'; text: string }
+
+/** Serialize favorites to the canonical, round-trippable JSON backup format. */
+export function favoritesToJson(items: readonly FavoriteIdea[]): string {
+  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), favorites: items }, null, 2)
+}
+
+/** Render favorites as a human-readable Markdown list (read-only, not re-importable). */
+export function favoritesToMarkdown(items: readonly FavoriteIdea[]): string {
+  const lines = ['# 灵感罐收藏', '', `共 ${String(items.length)} 条`, '']
+  for (const item of items) lines.push(`- [${IDEA_STATUS_LABELS[item.status]}] ${item.category}｜${item.idea}`)
+  lines.push('')
+  return lines.join('\n')
+}

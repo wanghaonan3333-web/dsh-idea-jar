@@ -8,8 +8,10 @@
 
 - 使用当前 DSH 默认模型生成通用创作灵感。
 - 在第一次生成后输入额外要求，按 Enter 继续生成。
+- 可一次生成最多三条候选；「换一个」按同一要求重新生成。
 - 收藏内容以不同颜色的折叠纸条显示在透明罐中。
-- 收藏支持展开、编辑、复制、AI 优化、删除和状态筛选。
+- 收藏支持展开、编辑、复制、AI 优化、删除、状态筛选，以及删除/优化的撤销。
+- 支持导出为 JSON 或 Markdown，并导入 JSON 或旧动态版的备份文件。
 - 状态包括计划中、进行中、已实现和暂不做。
 - 收藏通过 DSH Settings 的 `idea-jar` 命名空间持久保存，页面刷新、插件更新和 DSH 重启不会清空数据。
 
@@ -38,18 +40,26 @@ GitHub 安装会运行项目的 `prepare` 构建脚本。pnpm 10 及以上版本
 预构建包不需要依赖构建授权：
 
 ```sh
-dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.1.0.tgz"
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.2.0.tgz"
 ```
 
 ## 使用
 
 1. 点击右下角透明罐子生成灵感。
 2. 点击灵感气泡中的星标收藏。
-3. 点击罐子旁的星形按钮打开收藏库。
-4. 使用纸卡底部操作编辑、复制、AI 优化或删除内容。
-5. 使用卡片右上角状态胶囊管理进度。
+3. 用「换一个」重新生成，或用「来三条」一次生成三条候选。
+4. 点击罐子旁的星形按钮打开收藏库。
+5. 使用纸卡底部操作编辑、复制、AI 优化或删除内容。
+6. 在收藏库顶部工具栏导出或导入。
 
 复制按钮写入系统剪贴板，格式为 `分类｜灵感内容`。浏览器拒绝剪贴板权限时，卡片会显示错误。
+
+## 导入与导出
+
+- **导出 JSON** 生成规范备份：保留完整状态，可在任意机器重新导入。
+- **导出 Markdown** 生成便于阅读分享的列表；仅供阅读，不会反向导入。
+- **导入** 支持插件自己的 JSON 备份（裸数组或 `{ "favorites": [...] }`）和旧动态版的 `.idea-jar-favorites.txt`（制表符分隔，分类与内容为 base64 编码）。
+- 删除或优化收藏后会短暂显示「撤销」提示，可恢复之前的状态。
 
 ## 配置
 
@@ -62,6 +72,7 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
     maxRequestChars: 2000
     maxIdeaChars: 1000
     maxTokens: 320
+    maxBatch: 3
 ```
 
 | 字段 | 默认值 | 说明 |
@@ -70,12 +81,13 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
 | `maxRequestChars` | `2000` | 额外需求的最大字符数。 |
 | `maxIdeaChars` | `1000` | 单条收藏内容的最大字符数。 |
 | `maxTokens` | `320` | 每次生成或优化的模型输出上限。 |
+| `maxBatch` | `3` | 单次生成请求的最大候选条数。 |
 
 ## 数据与权限
 
 - 收藏由 DSH Settings Provider 写入 `$DSH_HOME/settings.yaml` 的 `idea-jar` 段；插件不在项目目录中创建数据文件。
 - 生成和 AI 优化使用当前配置的 DSH 默认模型及其凭据。
-- Host 注册同源 POST API `/idea-jar/api`；跨站请求会被拒绝，请求体限制为 64 KiB。
+- Host 注册同源 POST API `/idea-jar/api`；跨站请求会被拒绝，请求体限制为 2 MiB。
 - Client 仅在用户点击复制时调用浏览器 Clipboard API。
 - 插件不包含遥测、广告或第三方分析。
 
