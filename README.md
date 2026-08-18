@@ -32,6 +32,14 @@ dsh plugin --profile web add github:wanghaonan3333-web/dsh-idea-jar
 
 GitHub installation runs the package `prepare` build. pnpm 10 and newer block dependency builds by default. Review the source, add the exact package key printed by the CLI to the profile's `pnpm-workspace.yaml` `allowBuilds`, and retry the installation.
 
+### GitHub Release tarball
+
+The prebuilt release avoids dependency-build approval:
+
+```sh
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.1.0.tgz"
+```
+
 ## Usage
 
 1. Click the transparent jar in the lower-right corner.

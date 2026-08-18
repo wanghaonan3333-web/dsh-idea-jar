@@ -33,6 +33,14 @@ dsh plugin --profile web add github:wanghaonan3333-web/dsh-idea-jar
 
 GitHub 安装会运行项目的 `prepare` 构建脚本。pnpm 10 及以上版本默认阻止依赖构建；请仅在确认源码可信后，按照 CLI 输出把准确的包键加入该 profile 的 `pnpm-workspace.yaml` `allowBuilds`，再重新安装。
 
+### GitHub Release 预构建包
+
+预构建包不需要依赖构建授权：
+
+```sh
+dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar/releases/latest/download/dsh-idea-jar-0.1.0.tgz"
+```
+
 ## 使用
 
 1. 点击右下角透明罐子生成灵感。
