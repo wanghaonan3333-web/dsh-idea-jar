@@ -1,0 +1,4 @@
+# Install the Idea Jar host row; package.json exposes its browser client entry.
+- insert:
+    - id: idea-jar
+      name: 'dsh-idea-jar'
