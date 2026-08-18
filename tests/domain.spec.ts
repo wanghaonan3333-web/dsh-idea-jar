@@ -33,7 +33,7 @@ describe('idea domain', () => {
   })
 
   it('rejects empty model output', () => {
-    expect(() => parseIdeaLine('  \n ')).toThrow('empty content')
+    expect(() => parseIdeaLine('  \n ')).toThrow('模型没有返回内容')
   })
 
   it('recognizes only supported statuses', () => {

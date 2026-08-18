@@ -191,7 +191,7 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
     return { favorites: cloneFavorites(favorites) }
   }
 
-  const runModel = async (prompt: string, system: string): Promise<Omit<Idea, 'id'>> => {
+  const requestModelText = async (prompt: string, system: string): Promise<string> => {
     const selection = ctx.agentDefaultModel.currentSelection()
     const assembler = new BlockAssembler()
     for await (const chunk of ctx.llm.stream({
@@ -209,12 +209,23 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
     })) assembler.push(chunk)
     const finish = assembler.finish
     if (finish.kind === 'error' || finish.kind === 'aborted') throw new Error(finish.failure.message)
-    const text = assembler.blocks()
+    return assembler.blocks()
       .filter(block => block.type === 'text')
       .map(block => block.text)
       .join('')
       .trim()
-    return boundedIdea(parseIdeaLine(text), config)
+  }
+
+  const runTextModel = async (prompt: string, system: string): Promise<string> => {
+    const first = await requestModelText(prompt, system)
+    if (first.length > 0) return first
+    const retry = await requestModelText(`${prompt}\n\n上一次没有返回正文，请直接给出完整结果。`, system)
+    if (retry.length === 0) throw new Error('模型连续两次没有返回内容，请稍后再试。')
+    return retry
+  }
+
+  const runIdeaModel = async (prompt: string, system: string): Promise<Omit<Idea, 'id'>> => {
+    return boundedIdea(parseIdeaLine(await runTextModel(prompt, system)), config)
   }
 
   const generate = async (request: string, count: number): Promise<GenerateResult> => {
@@ -225,7 +236,7 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
     const items: Idea[] = []
     for (let index = 0; index < count; index++) {
       const distinct = count > 1 ? `\n\n请生成第 ${String(index + 1)} 条灵感，并与前面几条明显不同，避免重复。` : ''
-      const parsed = await runModel(`${base}\n最近灵感：\n${recentText()}${distinct}`, generationSystem)
+      const parsed = await runIdeaModel(`${base}\n最近灵感：\n${recentText()}${distinct}`, generationSystem)
       items.push({ id: randomUUID(), ...parsed })
       recent.push(`${parsed.category}｜${parsed.idea}`)
       if (recent.length > 8) recent.shift()
@@ -252,7 +263,7 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
   const optimize = async (id: string): Promise<FavoritesResult> => {
     const snapshot = settings.get().favorites.find(item => item.id === id)
     if (snapshot === undefined) throw new HttpError(404, '找不到这条收藏。')
-    const optimized = await runModel(`原灵感：\n${snapshot.category}｜${snapshot.idea}`, optimizationSystem)
+    const optimized = await runIdeaModel(`原灵感：\n${snapshot.category}｜${snapshot.idea}`, optimizationSystem)
     return serializeWrite(async () => {
       const current = settings.get().favorites
       const latest = current.find(item => item.id === id)
@@ -267,7 +278,7 @@ export function apply(ctx: IdeaJarContext, config: Config): void {
   const expand = async (id: string): Promise<ExpandResult> => {
     const snapshot = settings.get().favorites.find(item => item.id === id)
     if (snapshot === undefined) throw new HttpError(404, '找不到这条收藏。')
-    const plan = (await runModel(`灵感：\n${snapshot.category}｜${snapshot.idea}`, expansionSystem)).idea
+    const plan = await runTextModel(`灵感：\n${snapshot.category}｜${snapshot.idea}`, expansionSystem)
     return { id, plan }
   }
 

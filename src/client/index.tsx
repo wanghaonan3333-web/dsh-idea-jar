@@ -74,7 +74,25 @@ const style = `
 .ideaJarText{font-size:12px;line-height:1.58;white-space:pre-wrap}.ideaJarCollapsed{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.ideaJarEdit{box-sizing:border-box;width:100%;min-height:86px;padding:8px;border:1px solid var(--dsw-alias-brand-primary);border-radius:8px;resize:vertical;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:12px}.ideaJarPlan{margin-top:8px;padding:9px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:9px;background:var(--dsw-alias-bg-layer-1)}.ideaJarPlanHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}.ideaJarPlanTitle{color:var(--dsw-alias-brand-text);font-size:10px;font-weight:650}.ideaJarPlanTools{display:flex;gap:2px}.ideaJarPlanText{font-size:11px;line-height:1.6;white-space:pre-wrap;color:var(--dsw-alias-label-primary)}.ideaJarFeedback{display:flex;gap:6px;align-items:center;margin-bottom:7px;padding:6px 8px;border-radius:7px;font-size:10px}.ideaJarFeedback-loading{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarFeedback-success{border:1px solid var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary)}.ideaJarFeedback-error{border:1px solid var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}.ideaJarSpin{width:9px;height:9px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:ideaJarSpin .7s linear infinite}
 .ideaJarActions{display:flex;align-items:center;gap:3px;margin-top:8px;flex-wrap:wrap}.ideaJarAction{border:0;border-radius:7px;padding:4px 6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:10px}.ideaJarAction:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}.ideaJarAction:disabled{opacity:.5;cursor:not-allowed}.ideaJarPrimary{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarDelete{margin-left:auto}.ideaJarDelete:hover{color:var(--dsw-alias-state-error-primary)}.ideaJarCopied{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-bg-layer-2)}.ideaJarEmpty{padding:30px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:11px}
 @keyframes ideaJarUp{0%{opacity:0;transform:translate(0,9px) scale(.35)}18%{opacity:.9}50%{transform:translate(-3px,-18px) scale(.8)}100%{opacity:0;transform:translate(3px,-52px) scale(1.3)}}@keyframes ideaJarDrop{from{opacity:0;transform:translateY(-28px)}to{opacity:1;transform:translateY(0)}}@keyframes ideaJarSpin{to{transform:rotate(360deg)}}
-@media(max-width:520px){.ideaJarScene{right:10px;bottom:10px}.ideaJarPanel{width:calc(100vw - 20px);max-height:72vh}.ideaJarBubble{max-width:calc(100vw - 50px)}}
+/* Compact warm-paper presentation. */
+.ideaJarScene{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));gap:7px;font-size:13px}
+.ideaJarBubble,.ideaJarPanel{box-shadow:0 14px 38px rgba(69,48,24,.14)}
+.ideaJarBubble{box-sizing:border-box;max-width:min(286px,calc(100vw - 30px));padding:10px 34px 10px 12px;border-color:rgba(145,112,59,.25);border-radius:16px 16px 4px 16px;background:color-mix(in srgb,var(--dsw-alias-bg-overlay) 91%,#fff1c9 9%);font-size:12px}
+.ideaJarBubbleTools{gap:3px}.ideaJarToolButton{padding:4px 9px;font-size:10px}.ideaJarRequirement{width:218px;padding:7px 10px;font-size:11px}
+.ideaJarJarWrap{width:72px;height:88px}.ideaJarJar{width:66px;height:84px}.ideaJarJar svg{width:66px;height:84px}.ideaJarLibrary{right:-3px;top:14px;width:28px;height:28px}
+.ideaJarPanel{box-sizing:border-box;width:min(344px,calc(100vw - 24px));max-height:min(450px,64vh);overflow:hidden;border-color:rgba(145,112,59,.24);border-radius:16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 92%,#ffe8a9 8%)}
+.ideaJarPanelTop{padding:11px 12px 9px;border-color:rgba(145,112,59,.18);background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 94%,#fff0c8 6%)}
+.ideaJarTitleRow{align-items:flex-start}.ideaJarTitle{font-family:ui-serif,"Songti SC",serif;font-size:14px;letter-spacing:.04em}.ideaJarSubtitle{font-size:9px}.ideaJarPanelClose{width:23px;height:23px}
+.ideaJarTopActions{position:relative;display:flex;align-items:center;gap:5px}.ideaJarMoreButton{width:25px;height:25px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:16px}.ideaJarMoreButton:hover{background:rgba(145,112,59,.09)}
+.ideaJarTransferMenu{position:absolute;right:0;top:29px;z-index:30;width:142px;padding:5px;border:1px solid rgba(145,112,59,.24);border-radius:10px;background:var(--dsw-alias-bg-overlay);box-shadow:0 10px 28px rgba(69,48,24,.18)}.ideaJarTransfer{display:block;width:100%;border:0;border-radius:7px;padding:7px 8px;background:transparent;text-align:left}.ideaJarTransfer:hover{background:rgba(145,112,59,.09)}
+.ideaJarFilters{margin-top:7px;gap:3px;padding-bottom:1px}.ideaJarFilter{padding:3px 7px;border-color:transparent;background:transparent;font-size:9px}.ideaJarFilterOn{border-color:rgba(24,111,139,.42);background:color-mix(in srgb,var(--dsw-alias-state-business-tertiary) 72%,transparent);font-weight:650}
+.ideaJarList{box-sizing:border-box;max-height:calc(min(450px,64vh) - 96px);overflow-y:auto;gap:7px;padding:8px}
+.ideaJarCard{box-sizing:border-box;padding:9px 10px 8px 11px;border-color:rgba(145,112,59,.19);border-left-width:3px;border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-bg-overlay) 86%,#ffe7a1 14%);box-shadow:0 2px 8px rgba(85,57,19,.05)}
+.ideaJarCardHead{margin-bottom:5px}.ideaJarCategory{font-size:9px}.ideaJarStatus{gap:4px;padding:3px 7px;border-color:color-mix(in srgb,currentColor 58%,transparent);background:rgba(255,255,255,.36);font-size:9px}
+.ideaJarText{font-size:11px;line-height:1.58}.ideaJarCollapsed{-webkit-line-clamp:2}.ideaJarEdit{min-height:74px;font-size:11px}.ideaJarPlan{padding:8px 9px;border-color:rgba(145,112,59,.19);background:rgba(255,250,234,.62)}.ideaJarPlanText{font-size:10px}
+.ideaJarActions{position:relative;gap:2px;margin-top:6px;flex-wrap:nowrap}.ideaJarAction{padding:4px 6px;font-size:9px}.ideaJarActionMain{color:var(--dsw-alias-label-primary)}.ideaJarActionNext{background:color-mix(in srgb,var(--dsw-alias-state-business-tertiary) 66%,transparent);color:var(--dsw-alias-brand-text)}.ideaJarActionMore{margin-left:auto;font-size:14px;line-height:1}.ideaJarCardMenu{position:absolute;right:0;bottom:27px;z-index:25;width:126px;padding:5px;border:1px solid rgba(145,112,59,.24);border-radius:10px;background:var(--dsw-alias-bg-overlay);box-shadow:0 10px 26px rgba(69,48,24,.2)}.ideaJarCardMenu .ideaJarMenuItem{padding:6px 7px;font-size:10px}.ideaJarMenuDanger{color:var(--dsw-alias-state-error-primary)}
+.ideaJarFeedback{margin-bottom:5px;padding:5px 7px}.ideaJarEmpty{padding:24px}.ideaJarToast,.ideaJarNotice{max-width:300px}
+@media(max-width:520px){.ideaJarScene{right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom))}.ideaJarPanel{width:min(332px,calc(100vw - 16px));max-height:62vh}.ideaJarList{max-height:calc(62vh - 96px)}.ideaJarBubble{max-width:calc(100vw - 24px)}}
 `
 
 function errorMessage(error: unknown): string {
@@ -137,6 +155,8 @@ function IdeaJar({ onOpenNewSession }: IdeaJarProps) {
   const [filter, setFilter] = useState<'all' | IdeaStatus>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [statusMenuId, setStatusMenuId] = useState<string | null>(null)
+  const [cardMenuId, setCardMenuId] = useState<string | null>(null)
+  const [transferMenuOpen, setTransferMenuOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [optimizingId, setOptimizingId] = useState<string | null>(null)
@@ -393,13 +413,16 @@ function IdeaJar({ onOpenNewSession }: IdeaJarProps) {
     {open && <section className="ideaJarPanel" aria-label="灵感收藏">
       <div className="ideaJarPanelTop">
         <div className="ideaJarTitleRow">
-          <div><div className="ideaJarTitle">灵感收藏</div><div className="ideaJarSubtitle">{saved.length} 张纸条 · 自动持久保存</div></div>
-          <button className="ideaJarPanelClose" onClick={() => setOpen(false)} aria-label="关闭收藏">×</button>
-        </div>
-        <div className="ideaJarToolbar">
-          <button className="ideaJarTransfer" onClick={exportJson}>⇩ 导出 JSON</button>
-          <button className="ideaJarTransfer" onClick={exportMarkdown}>⇩ 导出 Markdown</button>
-          <button className="ideaJarTransfer" onClick={() => importRef.current?.click()}>⇧ 导入</button>
+          <div><div className="ideaJarTitle">灵感收藏</div><div className="ideaJarSubtitle">{saved.length} 张纸条 · 自动保存</div></div>
+          <div className="ideaJarTopActions">
+            <button className="ideaJarMoreButton" onClick={() => setTransferMenuOpen(!transferMenuOpen)} aria-label="导入导出">···</button>
+            {transferMenuOpen && <div className="ideaJarTransferMenu">
+              <button className="ideaJarTransfer" onClick={() => { exportJson(); setTransferMenuOpen(false) }}>导出 JSON</button>
+              <button className="ideaJarTransfer" onClick={() => { exportMarkdown(); setTransferMenuOpen(false) }}>导出 Markdown</button>
+              <button className="ideaJarTransfer" onClick={() => { importRef.current?.click(); setTransferMenuOpen(false) }}>导入备份</button>
+            </div>}
+            <button className="ideaJarPanelClose" onClick={() => setOpen(false)} aria-label="关闭收藏">×</button>
+          </div>
         </div>
         <div className="ideaJarFilters">
           {([['all', '全部'], ...IDEA_STATUSES.map(status => [status, IDEA_STATUS_LABELS[status]] as const)] as const).map(([key, text]) => {
@@ -449,13 +472,16 @@ function IdeaJar({ onOpenNewSession }: IdeaJarProps) {
                 <button className="ideaJarAction ideaJarPrimary" onClick={() => void saveEdit(item)}>保存</button>
                 <button className="ideaJarAction" onClick={() => { setEditId(null); setEditText('') }}>取消</button>
               </> : <>
-                <button className="ideaJarAction" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>{expanded ? '收起' : '展开'}</button>
-                <button className={`ideaJarAction${copiedId === item.id ? ' ideaJarCopied' : ''}`} onClick={() => void copyIdea(item)}>{copiedId === item.id ? '✓ 已复制' : '⧉ 复制'}</button>
-                <button className="ideaJarAction" disabled={loading || expanding} onClick={() => { setEditId(item.id); setEditText(item.idea); setExpandedId(item.id); setFeedback(null) }}>编辑</button>
-                <button className="ideaJarAction ideaJarPrimary" disabled={loading || expanding} onClick={() => void optimize(item)}>{loading ? '优化中…' : '✦ AI 优化'}</button>
-                <button className="ideaJarAction" disabled={loading || expanding} onClick={() => void expandIdea(item)}>{expanding ? '拆解中…' : '✦ 下一步'}</button>
-                {newSessionEnabled && <button className="ideaJarAction ideaJarPrimary" disabled={loading || expanding} onClick={() => sendToNewSession(item)}>↗ 新会话</button>}
-                <button className="ideaJarAction ideaJarDelete" disabled={loading || expanding} onClick={() => void remove(item)}>删除</button>
+                <button className={`ideaJarAction ideaJarActionMain${copiedId === item.id ? ' ideaJarCopied' : ''}`} onClick={() => void copyIdea(item)}>{copiedId === item.id ? '✓ 已复制' : '⧉ 复制'}</button>
+                <button className="ideaJarAction ideaJarActionNext" disabled={loading || expanding} onClick={() => void expandIdea(item)}>{expanding ? '拆解中…' : '✦ 下一步'}</button>
+                <button className="ideaJarAction ideaJarActionMore" disabled={loading || expanding} onClick={() => setCardMenuId(cardMenuId === item.id ? null : item.id)} aria-label="更多操作">···</button>
+                {cardMenuId === item.id && <div className="ideaJarCardMenu">
+                  <button className="ideaJarMenuItem" onClick={() => { setExpandedId(expandedId === item.id ? null : item.id); setCardMenuId(null) }}>{expanded ? '收起全文' : '展开全文'}</button>
+                  <button className="ideaJarMenuItem" onClick={() => { setEditId(item.id); setEditText(item.idea); setExpandedId(item.id); setFeedback(null); setCardMenuId(null) }}>编辑灵感</button>
+                  <button className="ideaJarMenuItem" onClick={() => { setCardMenuId(null); void optimize(item) }}>{loading ? '优化中…' : 'AI 优化'}</button>
+                  {newSessionEnabled && <button className="ideaJarMenuItem" onClick={() => { sendToNewSession(item); setCardMenuId(null) }}>发送到新会话</button>}
+                  <button className="ideaJarMenuItem ideaJarMenuDanger" onClick={() => { setCardMenuId(null); void remove(item) }}>删除</button>
+                </div>}
               </>}
             </div>
           </article>

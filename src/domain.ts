@@ -3,12 +3,12 @@ import { IDEA_STATUSES, type FavoriteIdea, type Idea, type IdeaStatus } from './
 /** Parse one model line in the required `category｜idea` form. */
 export function parseIdeaLine(text: string): Omit<Idea, 'id'> {
   const line = text.split('\n').map(value => value.trim()).find(Boolean)
-  if (line === undefined) throw new Error('The model returned empty content.')
+  if (line === undefined) throw new Error('模型没有返回内容，请稍后重试。')
   const separator = line.includes('｜') ? '｜' : '|'
   const index = line.indexOf(separator)
   const category = index > 0 ? line.slice(0, index).replace(/^[-*#\s]+/, '').trim() : '灵感'
   const idea = index > 0 ? line.slice(index + 1).trim() : line
-  if (idea.length === 0) throw new Error('The model returned an empty idea.')
+  if (idea.length === 0) throw new Error('模型没有返回有效灵感，请换一个试试。')
   return { category: category || '灵感', idea }
 }
 

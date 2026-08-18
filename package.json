@@ -1,6 +1,6 @@
 {
   "name": "dsh-idea-jar",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A floating idea jar for DeepSeek Harness that generates, organizes, edits, optimizes, copies, imports/exports, expands into next steps, and persistently saves creative ideas.",
   "type": "module",
   "main": "lib/index.js",
