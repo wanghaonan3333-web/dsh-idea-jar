@@ -11,6 +11,8 @@
 - 可一次生成最多三条候选；「换一个」按同一要求重新生成。
 - 收藏内容以不同颜色的折叠纸条显示在透明罐中。
 - 收藏支持展开、编辑、复制、AI 优化、删除、状态筛选，以及删除/优化的撤销。
+- 可把收藏拆解为可立即动手的下一步方案（目标、第一步动作、素材清单）。
+- 可选择把收藏作为可执行 prompt 发送到新会话（默认关闭）。
 - 支持导出为 JSON 或 Markdown，并导入 JSON 或旧动态版的备份文件。
 - 状态包括计划中、进行中、已实现和暂不做。
 - 收藏通过 DSH Settings 的 `idea-jar` 命名空间持久保存，页面刷新、插件更新和 DSH 重启不会清空数据。
@@ -49,10 +51,15 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
 2. 点击灵感气泡中的星标收藏。
 3. 用「换一个」重新生成，或用「来三条」一次生成三条候选。
 4. 点击罐子旁的星形按钮打开收藏库。
-5. 使用纸卡底部操作编辑、复制、AI 优化或删除内容。
+5. 使用纸卡底部操作编辑、复制、AI 优化、拆解下一步或删除内容。
 6. 在收藏库顶部工具栏导出或导入。
 
 复制按钮写入系统剪贴板，格式为 `分类｜灵感内容`。浏览器拒绝剪贴板权限时，卡片会显示错误。
+
+## 下一步与新会话
+
+- **下一步** 把收藏拆解为可立即执行的内容：一句话目标、第一步动作、所需素材或工具清单。结果内联展示并可复制；按需生成，不持久保存。
+- **新会话** 把收藏作为可执行 prompt 复制到剪贴板，并通过 DSH 的 `workspaces` 服务打开新的空白会话，粘贴即可开始。仅在 `enableNewSession` 设为 `true` 时显示。
 
 ## 导入与导出
 
@@ -73,6 +80,7 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
     maxIdeaChars: 1000
     maxTokens: 320
     maxBatch: 3
+    enableNewSession: false
 ```
 
 | 字段 | 默认值 | 说明 |
@@ -80,8 +88,9 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
 | `maxFavorites` | `200` | 最多保存的收藏数量。 |
 | `maxRequestChars` | `2000` | 额外需求的最大字符数。 |
 | `maxIdeaChars` | `1000` | 单条收藏内容的最大字符数。 |
-| `maxTokens` | `320` | 每次生成或优化的模型输出上限。 |
+| `maxTokens` | `320` | 每次生成、优化或拆解下一步的模型输出上限。 |
 | `maxBatch` | `3` | 单次生成请求的最大候选条数。 |
+| `enableNewSession` | `false` | 是否显示「新会话」操作，以把灵感作为 prompt 打开新会话。 |
 
 ## 数据与权限
 

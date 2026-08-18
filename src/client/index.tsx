@@ -5,6 +5,8 @@ import {
   IDEA_STATUS_LABELS,
   favoritesToJson,
   favoritesToMarkdown,
+  ideaToTaskPrompt,
+  type ExpandResult,
   type FavoriteIdea,
   type FavoritesResult,
   type GenerateResult,
@@ -12,6 +14,7 @@ import {
   type IdeaJarRequest,
   type IdeaStatus,
   type ImportResult,
+  type ListResult,
 } from '../shared.ts'
 
 export const name = 'dsh-idea-jar'
@@ -24,6 +27,7 @@ interface SlotsService {
 
 interface ClientContext {
   slots: SlotsService
+  get<T = unknown>(name: string): T | undefined
 }
 
 interface CurrentIdea extends Idea {
@@ -40,6 +44,10 @@ interface CardFeedback {
 interface Undo {
   kind: 'delete' | 'optimize'
   item: FavoriteIdea
+}
+
+interface IdeaJarProps {
+  onOpenNewSession: (prompt: string) => boolean
 }
 
 const paperLayouts = [
@@ -63,7 +71,7 @@ const style = `
 .ideaJarFilters{display:flex;gap:5px;margin-top:9px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.ideaJarFilter{flex:none;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;padding:3px 8px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:10px}.ideaJarFilterOn{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarList{display:flex;flex-direction:column;gap:8px;padding:9px}
 .ideaJarCard{position:relative;padding:10px 11px 9px 12px;border:1px solid var(--dsw-alias-border-l1);border-left-width:3px;border-radius:11px;background:color-mix(in srgb,var(--dsw-alias-bg-overlay) 91%,#ffe9a8 9%);box-shadow:0 2px 7px rgba(0,0,0,.05)}.ideaJarCard-planned{border-left-color:var(--dsw-alias-state-warn-primary)}.ideaJarCard-in-progress{border-left-color:var(--dsw-alias-brand-primary)}.ideaJarCard-implemented{border-left-color:var(--dsw-alias-state-success-primary)}.ideaJarCard-archived{border-left-color:var(--dsw-alias-label-secondary)}
 .ideaJarCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ideaJarCategory{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:10px;font-weight:650}.ideaJarStatusArea{position:relative;flex:none}.ideaJarStatus{display:flex;align-items:center;gap:5px;border:1px solid currentColor;border-radius:999px;padding:4px 8px;background:var(--dsw-alias-bg-overlay);font-size:10px;font-weight:650;cursor:pointer}.ideaJarStatus:disabled{opacity:.5}.ideaJarStatus-planned{color:var(--dsw-alias-state-warn-primary)}.ideaJarStatus-in-progress{color:var(--dsw-alias-brand-primary)}.ideaJarStatus-implemented{color:var(--dsw-alias-state-success-primary)}.ideaJarStatus-archived{color:var(--dsw-alias-label-secondary)}.ideaJarDot{width:6px;height:6px;border-radius:50%;background:currentColor}.ideaJarMenu{position:absolute;right:0;top:30px;z-index:20;width:116px;padding:5px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-overlay);box-shadow:0 8px 24px rgba(0,0,0,.18)}.ideaJarMenuItem{display:flex;width:100%;align-items:center;gap:7px;border:0;border-radius:7px;padding:7px 8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:11px;cursor:pointer}.ideaJarMenuItem:hover{background:var(--dsw-alias-bg-layer-2)}
-.ideaJarText{font-size:12px;line-height:1.58;white-space:pre-wrap}.ideaJarCollapsed{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.ideaJarEdit{box-sizing:border-box;width:100%;min-height:86px;padding:8px;border:1px solid var(--dsw-alias-brand-primary);border-radius:8px;resize:vertical;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:12px}.ideaJarFeedback{display:flex;gap:6px;align-items:center;margin-bottom:7px;padding:6px 8px;border-radius:7px;font-size:10px}.ideaJarFeedback-loading{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarFeedback-success{border:1px solid var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary)}.ideaJarFeedback-error{border:1px solid var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}.ideaJarSpin{width:9px;height:9px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:ideaJarSpin .7s linear infinite}
+.ideaJarText{font-size:12px;line-height:1.58;white-space:pre-wrap}.ideaJarCollapsed{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.ideaJarEdit{box-sizing:border-box;width:100%;min-height:86px;padding:8px;border:1px solid var(--dsw-alias-brand-primary);border-radius:8px;resize:vertical;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:12px}.ideaJarPlan{margin-top:8px;padding:9px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:9px;background:var(--dsw-alias-bg-layer-1)}.ideaJarPlanHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}.ideaJarPlanTitle{color:var(--dsw-alias-brand-text);font-size:10px;font-weight:650}.ideaJarPlanTools{display:flex;gap:2px}.ideaJarPlanText{font-size:11px;line-height:1.6;white-space:pre-wrap;color:var(--dsw-alias-label-primary)}.ideaJarFeedback{display:flex;gap:6px;align-items:center;margin-bottom:7px;padding:6px 8px;border-radius:7px;font-size:10px}.ideaJarFeedback-loading{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarFeedback-success{border:1px solid var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary)}.ideaJarFeedback-error{border:1px solid var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}.ideaJarSpin{width:9px;height:9px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:ideaJarSpin .7s linear infinite}
 .ideaJarActions{display:flex;align-items:center;gap:3px;margin-top:8px;flex-wrap:wrap}.ideaJarAction{border:0;border-radius:7px;padding:4px 6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:10px}.ideaJarAction:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}.ideaJarAction:disabled{opacity:.5;cursor:not-allowed}.ideaJarPrimary{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-brand-text)}.ideaJarDelete{margin-left:auto}.ideaJarDelete:hover{color:var(--dsw-alias-state-error-primary)}.ideaJarCopied{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-bg-layer-2)}.ideaJarEmpty{padding:30px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:11px}
 @keyframes ideaJarUp{0%{opacity:0;transform:translate(0,9px) scale(.35)}18%{opacity:.9}50%{transform:translate(-3px,-18px) scale(.8)}100%{opacity:0;transform:translate(3px,-52px) scale(1.3)}}@keyframes ideaJarDrop{from{opacity:0;transform:translateY(-28px)}to{opacity:1;transform:translateY(0)}}@keyframes ideaJarSpin{to{transform:rotate(360deg)}}
 @media(max-width:520px){.ideaJarScene{right:10px;bottom:10px}.ideaJarPanel{width:calc(100vw - 20px);max-height:72vh}.ideaJarBubble{max-width:calc(100vw - 50px)}}
@@ -119,7 +127,7 @@ function JarGraphic({ favorites }: { favorites: FavoriteIdea[] }) {
   </svg>
 }
 
-function IdeaJar() {
+function IdeaJar({ onOpenNewSession }: IdeaJarProps) {
   const [candidates, setCandidates] = useState<CurrentIdea[]>([])
   const [lastCount, setLastCount] = useState(1)
   const [request, setRequest] = useState('')
@@ -132,6 +140,9 @@ function IdeaJar() {
   const [editId, setEditId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [optimizingId, setOptimizingId] = useState<string | null>(null)
+  const [expandingId, setExpandingId] = useState<string | null>(null)
+  const [plans, setPlans] = useState<Record<string, string>>({})
+  const [newSessionEnabled, setNewSessionEnabled] = useState(false)
   const [feedback, setFeedback] = useState<CardFeedback | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [undo, setUndo] = useState<Undo | null>(null)
@@ -140,8 +151,10 @@ function IdeaJar() {
 
   useEffect(() => {
     let active = true
-    void callApi<FavoritesResult>({ action: 'list' }).then(result => {
-      if (active) setSaved(result.favorites)
+    void callApi<ListResult>({ action: 'list' }).then(result => {
+      if (!active) return
+      setSaved(result.favorites)
+      setNewSessionEnabled(result.features.newSession)
     }).catch(error => console.error('[dsh-idea-jar]', error))
     return () => { active = false }
   }, [])
@@ -261,6 +274,46 @@ function IdeaJar() {
     }
   }
 
+  const expandIdea = async (item: FavoriteIdea) => {
+    if (expandingId !== null) return
+    setExpandedId(item.id)
+    setExpandingId(item.id)
+    setFeedback({ id: item.id, kind: 'loading', message: 'AI 正在拆解下一步…' })
+    try {
+      const result = await callApi<ExpandResult>({ action: 'expand', id: item.id })
+      setPlans(prev => ({ ...prev, [item.id]: result.plan }))
+      setFeedback({ id: item.id, kind: 'success', message: '已生成下一步方案。' })
+    } catch (error) {
+      setFeedback({ id: item.id, kind: 'error', message: errorMessage(error) })
+    } finally {
+      setExpandingId(null)
+    }
+  }
+
+  const copyPlan = async (item: FavoriteIdea) => {
+    const plan = plans[item.id]
+    if (plan === undefined) return
+    try {
+      await navigator.clipboard.writeText(`${item.category}｜${item.idea}\n\n${plan}`)
+      setNotice('已复制下一步方案。')
+    } catch (error) {
+      setFeedback({ id: item.id, kind: 'error', message: `复制失败：${errorMessage(error)}` })
+    }
+  }
+
+  const collapsePlan = (id: string) => {
+    setPlans(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
+
+  const sendToNewSession = (item: FavoriteIdea) => {
+    const opened = onOpenNewSession(ideaToTaskPrompt(item))
+    setNotice(opened ? '已复制灵感并打开新会话，粘贴即可开始。' : '已复制灵感，请手动打开新会话。')
+  }
+
   const exportJson = () => {
     if (saved.length === 0) { setNotice('罐子还是空的，没有可导出的内容。'); return }
     downloadFile(`idea-jar-${new Date().toISOString().slice(0, 10)}.json`, favoritesToJson(saved))
@@ -359,9 +412,10 @@ function IdeaJar() {
         ? <div className="ideaJarEmpty">{saved.length === 0 ? '罐子还是空的' : '这个状态还没有灵感'}</div>
         : <div className="ideaJarList">{visible.map(item => {
           const loading = optimizingId === item.id
+          const expanding = expandingId === item.id
           const editing = editId === item.id
           const ownFeedback = feedback?.id === item.id ? feedback : null
-          const expanded = expandedId === item.id || editing || loading || ownFeedback !== null
+          const expanded = expandedId === item.id || editing || loading || expanding || ownFeedback !== null
           return <article key={item.id} className={`ideaJarCard ideaJarCard-${item.status}`}>
             <div className="ideaJarCardHead">
               <span className="ideaJarCategory">{item.category}</span>
@@ -380,6 +434,16 @@ function IdeaJar() {
             {editing
               ? <textarea className="ideaJarEdit" value={editText} onChange={event => setEditText(event.target.value)} aria-label="编辑灵感" />
               : <div className={`ideaJarText${expanded ? '' : ' ideaJarCollapsed'}`}>{item.idea}</div>}
+            {plans[item.id] !== undefined && !editing && <div className="ideaJarPlan">
+              <div className="ideaJarPlanHead">
+                <span className="ideaJarPlanTitle">✦ 下一步</span>
+                <div className="ideaJarPlanTools">
+                  <button className="ideaJarAction" onClick={() => void copyPlan(item)}>复制</button>
+                  <button className="ideaJarAction" onClick={() => collapsePlan(item.id)}>收起</button>
+                </div>
+              </div>
+              <div className="ideaJarPlanText">{plans[item.id]}</div>
+            </div>}
             <div className="ideaJarActions">
               {editing ? <>
                 <button className="ideaJarAction ideaJarPrimary" onClick={() => void saveEdit(item)}>保存</button>
@@ -387,9 +451,11 @@ function IdeaJar() {
               </> : <>
                 <button className="ideaJarAction" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>{expanded ? '收起' : '展开'}</button>
                 <button className={`ideaJarAction${copiedId === item.id ? ' ideaJarCopied' : ''}`} onClick={() => void copyIdea(item)}>{copiedId === item.id ? '✓ 已复制' : '⧉ 复制'}</button>
-                <button className="ideaJarAction" disabled={loading} onClick={() => { setEditId(item.id); setEditText(item.idea); setExpandedId(item.id); setFeedback(null) }}>编辑</button>
-                <button className="ideaJarAction ideaJarPrimary" disabled={loading} onClick={() => void optimize(item)}>{loading ? '优化中…' : '✦ AI 优化'}</button>
-                <button className="ideaJarAction ideaJarDelete" disabled={loading} onClick={() => void remove(item)}>删除</button>
+                <button className="ideaJarAction" disabled={loading || expanding} onClick={() => { setEditId(item.id); setEditText(item.idea); setExpandedId(item.id); setFeedback(null) }}>编辑</button>
+                <button className="ideaJarAction ideaJarPrimary" disabled={loading || expanding} onClick={() => void optimize(item)}>{loading ? '优化中…' : '✦ AI 优化'}</button>
+                <button className="ideaJarAction" disabled={loading || expanding} onClick={() => void expandIdea(item)}>{expanding ? '拆解中…' : '✦ 下一步'}</button>
+                {newSessionEnabled && <button className="ideaJarAction ideaJarPrimary" disabled={loading || expanding} onClick={() => sendToNewSession(item)}>↗ 新会话</button>}
+                <button className="ideaJarAction ideaJarDelete" disabled={loading || expanding} onClick={() => void remove(item)}>删除</button>
               </>}
             </div>
           </article>
@@ -405,10 +471,18 @@ function IdeaJar() {
 }
 
 export function apply(ctx: ClientContext): void {
+  const openNewSession = (prompt: string): boolean => {
+    const workspaces = ctx.get<{ startSession: () => void }>('workspaces')
+    if (workspaces === undefined) return false
+    void navigator.clipboard.writeText(prompt)
+    workspaces.startSession()
+    return true
+  }
+  const Component = () => <IdeaJar onOpenNewSession={openNewSession} />
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay',
     id: 'idea-jar',
     order: 20,
     label: '灵感罐',
-  }, IdeaJar))
+  }, Component))
 }

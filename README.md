@@ -11,6 +11,8 @@ Idea Jar is a floating creative tool for DeepSeek Harness Web. Click the transpa
 - Generates up to three candidates at once; "换一个" regenerates with the same requirement.
 - Shows saved ideas as status-colored folded notes inside a transparent jar.
 - Supports expand, edit, copy, AI optimization, delete, status changes, filtering, and undo for delete/optimize.
+- Expands a favorite into an executable next-step breakdown (goal, first action, materials).
+- Optionally sends a favorite to a new session as an executable prompt (off by default).
 - Exports favorites to JSON or Markdown and imports JSON or the legacy dynamic-plugin backup.
 - Persists favorites through the DSH Settings `idea-jar` namespace across page reloads, plugin updates, and DSH restarts.
 
@@ -48,10 +50,15 @@ dsh plugin --profile web add "https://github.com/wanghaonan3333-web/dsh-idea-jar
 2. Favorite a generated idea with the star in its bubble.
 3. Use "换一个" to regenerate or "来三条" to generate three candidates at once.
 4. Open the library with the star button attached to the jar.
-5. Edit, copy, optimize, delete, or assign a status from each paper card.
+5. Edit, copy, optimize, expand, delete, or assign a status from each paper card.
 6. Export or import from the toolbar at the top of the library.
 
 Copy writes `category｜idea` to the system clipboard and reports browser permission failures on the card.
+
+## Next steps and new session
+
+- **下一步** expands a favorite into an executable breakdown: a one-line goal, the first action, and the materials or tools you need. The result is shown inline and can be copied; it is generated on demand and not persisted.
+- **新会话** copies the favorite as an executable prompt and opens a new blank session through the DSH `workspaces` service; paste the copied prompt to start. It is hidden unless `enableNewSession` is set to `true`.
 
 ## Import and export
 
@@ -72,6 +79,7 @@ Override the complete `idea-jar` row config in the profile's `cordis.patch.yml`:
     maxIdeaChars: 1000
     maxTokens: 320
     maxBatch: 3
+    enableNewSession: false
 ```
 
 | Field | Default | Purpose |
@@ -79,8 +87,9 @@ Override the complete `idea-jar` row config in the profile's `cordis.patch.yml`:
 | `maxFavorites` | `200` | Maximum saved favorites. |
 | `maxRequestChars` | `2000` | Maximum extra-requirement length. |
 | `maxIdeaChars` | `1000` | Maximum saved idea length. |
-| `maxTokens` | `320` | Output-token cap for generation and optimization. |
+| `maxTokens` | `320` | Output-token cap for generation, optimization, and expansion. |
 | `maxBatch` | `3` | Maximum candidates per generation request. |
+| `enableNewSession` | `false` | Show the "新会话" action that opens a new session with the idea as a prompt. |
 
 ## Data and permissions
 

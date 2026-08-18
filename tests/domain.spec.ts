@@ -7,7 +7,7 @@ import {
   parseImportText,
   replaceFavorite,
 } from '../src/domain.ts'
-import { favoritesToJson, favoritesToMarkdown, type FavoriteIdea } from '../src/shared.ts'
+import { favoritesToJson, favoritesToMarkdown, ideaToTaskPrompt, type FavoriteIdea } from '../src/shared.ts'
 
 const favorite: FavoriteIdea = {
   id: 'idea-1',
@@ -106,5 +106,10 @@ describe('parseImportText', () => {
 
   it('renders a readable markdown list', () => {
     expect(favoritesToMarkdown([favorite])).toContain('- [计划中] 互动体验｜让城市声音变成一张可探索的地图。')
+  })
+
+  it('renders an executable prompt for a new session', () => {
+    expect(ideaToTaskPrompt(favorite)).toContain('灵感分类：互动体验')
+    expect(ideaToTaskPrompt(favorite)).toContain(favorite.idea)
   })
 })
